@@ -182,7 +182,13 @@ int DatabaseHelper::InsertData(int type, const std::string& content,
     stream << type << ",'" << content << "'," << time;
     stream << ",'" << files << "','" << access << "');";
 
-    return Insert(stream.str());
+    int ret = Insert(stream.str());
+    if (ret != SQLITE_OK) {
+        return ret;
+    }
+
+    int id = sqlite3_last_insert_rowid(mDb);
+    return id;
 }
 
 int DatabaseHelper::RemoveData(int id)
@@ -241,8 +247,8 @@ int DatabaseHelper::Insert(const std::string& sql)
         return ret;
     }
 
-    sqlite3_exec(mDb, "COMMIT;", NULL, NULL, NULL);
-    return 0;
+    ret = sqlite3_exec(mDb, "COMMIT;", NULL, NULL, NULL);
+    return ret;
 }
 
 int DatabaseHelper::GetData(long time, std::stringstream& data)

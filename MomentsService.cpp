@@ -22,8 +22,22 @@ void DestroyService(void* service)
 
 }
 
+std::string MomentsService::Moment::toString()
+{
+    Json json;
+    json["id"] = mId;
+    json["type"] = mType;
+    json["content"] = mContent;
+    json["time"] = mTime;
+    json["files"] = mFiles;
+    json["access"] = mAccess;
+
+    return json.dump();
+}
+
 MomentsService::MomentsService(const std::string& path)
     : mPath(path)
+    , mStopThread(true)
 {
     mConnector = std::make_shared<Connector>(MOMENTS_SERVICE_NAME);
     auto listener = std::shared_ptr<PeerListener::MessageListener>(new MomentsListener(this));
@@ -74,7 +88,14 @@ bool MomentsService::IsPrivate()
 int MomentsService::Add(int type, const std::string& content,
             long time, const std::string& files, const std::string& access)
 {
-    return mDbHelper->InsertData(type, content, time, files, access);
+    int ret = mDbHelper->InsertData(type, content, time, files, access);
+    if (ret > 0) {
+        auto moment = std::make_shared<Moment>(ret, type, content, time, files, access);
+        std::unique_lock<std::mutex> _lock(mListMutex);
+        mMsgList.push_back(moment);
+    }
+
+    return ret;
 }
 
 int MomentsService::Remove(int id)
@@ -94,6 +115,7 @@ int MomentsService::Comment(const std::string& friendCode, const std::string& co
 
 int MomentsService::UpdateFriendList(const std::string& friendCode, const FriendInfo::Status& status)
 {
+    std::unique_lock<std::mutex> _lock(mListMutex);
     std::shared_ptr<ElaphantContact::FriendInfo> friendInfo;
     if (status == FriendInfo::Status::Online) {
         mOnlineFriendList.push_back(friendInfo);
@@ -115,11 +137,73 @@ int MomentsService::UpdateFriendList(const std::string& friendCode, const Friend
 void MomentsService::UserStatusChanged(const FriendInfo::Status& status)
 {
     if (status == FriendInfo::Status::Online) {
-        // start notify thread
+        StartMessageThread();
     }
     else {
-        // stop notify thread
+        StopMessageThread();
     }
+}
+
+void MomentsService::StartMessageThread()
+{
+    if (mMessageThread.get() != nullptr) return;
+
+    mStopThread = false;
+    mMessageThread = std::make_shared<std::thread>(MomentsService::ThreadFun, this);
+}
+
+void MomentsService::StopMessageThread()
+{
+    mStopThread = true;
+    mMessageThread->join();
+    mMessageThread.reset();
+}
+
+void MomentsService::NotifyNewMessage()
+{
+    std::unique_lock<std::mutex> lk(mCvMutex);
+    lk.unlock();
+    mCv.notify_one();
+}
+
+void MomentsService::PushMoment(const std::string& friendCode, const std::shared_ptr<Moment>& moment)
+{
+    printf("MomentsService push moment to %s\n", friendCode.c_str());
+    Json json;
+    json["serviceName"] = MOMENTS_SERVICE_NAME;
+    Json content;
+    content["command"] = "pushData";
+    content["content"] = moment->toString();
+    json["content"] = content;
+
+    mConnector->SendMessage(friendCode, json.dump());
+}
+
+void MomentsService::ThreadFun(MomentsService* service)
+{
+    printf("Moments start message thread.\n");
+
+    while (!service->mStopThread) {
+        std::unique_lock<std::mutex> lk(service->mCvMutex);
+        service->mCv.wait(lk);
+
+        printf("Momtents service push thread aweak\n");
+        std::unique_lock<std::mutex> _lock(service->mListMutex);
+        if (service->mOnlineFriendList.size() == 0 || service->mMsgList.size() == 0) {
+            continue;
+        }
+
+        for (auto it = service->mMsgList.begin(); it != service->mMsgList.end(); it++) {
+            for (const auto& friendItem : service->mOnlineFriendList) {
+                std::string humanCode;
+                friendItem->getHumanCode(humanCode);
+                service->PushMoment(humanCode, *it);
+            }
+            service->mMsgList.erase(it);
+        }
+    }
+
+    printf("Moments stop message thread.\n");
 }
 
 }

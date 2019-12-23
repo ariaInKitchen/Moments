@@ -4,6 +4,7 @@
 
 #include <string>
 #include <memory>
+#include <thread>
 #include "Connector.h"
 #include "DatabaseHelper.h"
 
@@ -13,6 +14,31 @@ namespace elastos  {
 
 class MomentsService
 {
+public:
+    class Moment
+    {
+    public:
+        Moment(int id, int type, const std::string& content,
+            long time, const std::string& files, const std::string& access)
+            : mId(id)
+            , mType(type)
+            , mContent(content)
+            , mTime(time)
+            , mFiles(files)
+            , mAccess(access)
+        {}
+
+        std::string toString();
+
+    private:
+        int mId;
+        int mType;
+        std::string mContent;
+        long mTime;
+        std::string mFiles;
+        std::string mAccess;
+    };
+
 public:
     MomentsService(const std::string& path);
     ~MomentsService() = default;
@@ -38,6 +64,15 @@ private:
 
     void UserStatusChanged(const FriendInfo::Status& status);
 
+    void StartMessageThread();
+    void StopMessageThread();
+
+    void NotifyNewMessage();
+
+    void PushMoment(const std::string& friendCode, const std::shared_ptr<Moment>& moment);
+
+    static void ThreadFun(MomentsService* service);
+
 private:
     std::string mPath;
     std::string mOwner;
@@ -47,7 +82,17 @@ private:
     std::shared_ptr<Connector> mConnector;
     std::shared_ptr<DatabaseHelper> mDbHelper;
 
+    std::mutex mListMutex;
     std::vector<std::shared_ptr<ElaphantContact::FriendInfo>> mOnlineFriendList;
+    std::vector<std::shared_ptr<Moment>> mMsgList;
+
+    // condition varialbe wait
+    std::condition_variable mCv;
+    std::mutex mCvMutex;
+
+    std::shared_ptr<std::thread> mMessageThread;
+
+    bool mStopThread;
 
     friend class MomentsListener;
 };
