@@ -4,7 +4,7 @@
 
 namespace elastos {
 
-void MomentsListener::onEvent(ContactListener::EventArgs& event)
+void MomentsListener::onEvent(ElaphantContact::Listener::EventArgs& event)
 {
     switch (event.type) {
     case ElaphantContact::Listener::EventType::StatusChanged:
@@ -34,7 +34,7 @@ void MomentsListener::onEvent(ContactListener::EventArgs& event)
     }
 }
 
-void MomentsListener::onReceivedMessage(const std::string& humanCode, ContactChannel channelType,
+void MomentsListener::onReceivedMessage(const std::string& humanCode, ElaphantContact::Channel channelType,
                                std::shared_ptr<ElaphantContact::Message> msgInfo)
 {
     printf("Service %s received message %s from %s\n", MOMENTS_SERVICE_NAME, msgInfo->data->toString().c_str(), humanCode.c_str());
@@ -57,7 +57,7 @@ void MomentsListener::onReceivedMessage(const std::string& humanCode, ContactCha
             HandleClear(humanCode);
         }
         else if (!command.compare("getSetting")) {
-
+            HandleGetSetting(humanCode, content);
         }
         else if (!command.compare("publish")) {
             HandlePublish(humanCode, content);
@@ -160,6 +160,17 @@ void MomentsListener::AcceptFriend(const std::string& humanCode, const Json& jso
     }
     std::string friendCode = json["friendCode"];
     mService->mConnector->AcceptFriend(friendCode);
+}
+
+void MomentsListener::HandleGetSetting(const std::string& humanCode, const Json& json)
+{
+    if (humanCode.compare(mService->mOwner)) {
+        printf("This is an owner command\n");
+        return;
+    }
+
+    std::string type = json["type"];
+    mService->SendSetting(type);
 }
 
 

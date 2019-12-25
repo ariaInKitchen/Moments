@@ -1,6 +1,7 @@
 
 #include "MomentsService.h"
 #include "MomentsListener.h"
+#include "ghc-filesystem.hpp"
 
 namespace elastos {
 
@@ -49,9 +50,19 @@ MomentsService::MomentsService(const std::string& path)
     mPath.append(mUserCode);
     mPath.append("/Moments");
 
+    std::error_code stdErrCode;
+    bool ret = ghc::filesystem::create_directories(mPath, stdErrCode);
+    if(ret == false || stdErrCode.value() != 0) {
+        int errCode = ErrCode::StdSystemErrorIndex - stdErrCode.value();
+        auto errMsg = ErrCode::ToString(errCode);
+        printf("MomentsService Failed to set local data dir, errcode: %s", errMsg.c_str());
+    }
+
     mDbHelper = std::make_shared<DatabaseHelper>(mPath);
     mOwner = mDbHelper->GetOwner();
     mPrivate = mDbHelper->GetPrivate();
+
+    printf("MomentsService owner %s isPirvate %d\n", mOwner.c_str(), mPrivate);
 
     const auto& friendList = mConnector->ListFriendInfo();
     if (mOwner.empty() && !friendList.empty()) {
@@ -90,9 +101,11 @@ int MomentsService::Add(int type, const std::string& content,
 {
     int ret = mDbHelper->InsertData(type, content, time, files, access);
     if (ret > 0) {
+        printf("insert to db id %d\n", ret);
         auto moment = std::make_shared<Moment>(ret, type, content, time, files, access);
         std::unique_lock<std::mutex> _lock(mListMutex);
         mMsgList.push_back(moment);
+        NotifyNewMessage();
     }
 
     return ret;
@@ -115,8 +128,14 @@ int MomentsService::Comment(const std::string& friendCode, const std::string& co
 
 int MomentsService::UpdateFriendList(const std::string& friendCode, const FriendInfo::Status& status)
 {
+    if (!friendCode.compare(mOwner)) {
+        printf("MomentsService owner status changed\n");
+        return 0;
+    }
+
     std::unique_lock<std::mutex> _lock(mListMutex);
     std::shared_ptr<ElaphantContact::FriendInfo> friendInfo;
+    mConnector->GetFriendInfo(friendCode, friendInfo);
     if (status == FriendInfo::Status::Online) {
         mOnlineFriendList.push_back(friendInfo);
     }
@@ -179,15 +198,32 @@ void MomentsService::PushMoment(const std::string& friendCode, const std::shared
     mConnector->SendMessage(friendCode, json.dump());
 }
 
+void MomentsService::SendSetting(const std::string& type)
+{
+    if (!type.compare("access")) {
+        Json json;
+        json["serviceName"] = MOMENTS_SERVICE_NAME;
+        Json content;
+        content["command"] = "getSetting";
+        content["type"] = type;
+        json["value"] = mPrivate;
+        mConnector->SendMessage(mOwner, json.dump());
+    }
+    else {
+        printf("MomentsService do not support this type: %s\n", type.c_str());
+    }
+}
+
 void MomentsService::ThreadFun(MomentsService* service)
 {
-    printf("Moments start message thread.\n");
+    printf("Moments service start message thread.\n");
 
     while (!service->mStopThread) {
+        printf("Momtents service message thread wait\n");
         std::unique_lock<std::mutex> lk(service->mCvMutex);
         service->mCv.wait(lk);
 
-        printf("Momtents service push thread aweak\n");
+        printf("Momtents service message thread aweak\n");
         std::unique_lock<std::mutex> _lock(service->mListMutex);
         if (service->mOnlineFriendList.size() == 0 || service->mMsgList.size() == 0) {
             continue;
@@ -199,11 +235,11 @@ void MomentsService::ThreadFun(MomentsService* service)
                 friendItem->getHumanCode(humanCode);
                 service->PushMoment(humanCode, *it);
             }
-            service->mMsgList.erase(it);
         }
+        service->mMsgList.clear();
     }
 
-    printf("Moments stop message thread.\n");
+    printf("Moments service stop message thread.\n");
 }
 
 }

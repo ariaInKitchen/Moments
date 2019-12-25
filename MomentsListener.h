@@ -16,8 +16,8 @@ public:
 
     ~MomentsListener() = default;
 
-    virtual void onEvent(ContactListener::EventArgs& event) override;
-    virtual void onReceivedMessage(const std::string& humanCode, ContactChannel channelType,
+    virtual void onEvent(ElaphantContact::Listener::EventArgs& event) override;
+    virtual void onReceivedMessage(const std::string& humanCode, ElaphantContact::Channel channelType,
                                std::shared_ptr<ElaphantContact::Message> msgInfo) override;
 
 private:
@@ -29,6 +29,8 @@ private:
     void HandleClear(const std::string& humanCode);
     void HandlePublish(const std::string& humanCode, const Json& json);
     void AcceptFriend(const std::string& humanCode, const Json& json);
+
+    void HandleGetSetting(const std::string& humanCode, const Json& json);
 
 private:
     MomentsService* mService;

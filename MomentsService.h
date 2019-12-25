@@ -71,6 +71,8 @@ private:
 
     void PushMoment(const std::string& friendCode, const std::shared_ptr<Moment>& moment);
 
+    void SendSetting(const std::string& type);
+
     static void ThreadFun(MomentsService* service);
 
 private:

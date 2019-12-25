@@ -11,8 +11,8 @@ namespace elastos {
 
 DatabaseHelper::DatabaseHelper(const std::string& path)
 {
-    std::stringstream ss(path);
-    ss << "/" << DATABASE_FILE;
+    std::stringstream ss;
+    ss << path << "/" << DATABASE_FILE;
     int ret = sqlite3_open(ss.str().c_str(), &mDb);
     if (ret != SQLITE_OK) {
         printf("open database %s failed, error code: %d\n", ss.str().c_str(), ret);
@@ -75,7 +75,7 @@ int DatabaseHelper::CreateSettingTable()
 int DatabaseHelper::CreateDataTable()
 {
     std::stringstream ss;
-    ss << "CREATE TABLE " << SETTING_TABLE << "(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, ";
+    ss << "CREATE TABLE " << LIST_TABLE << "(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, ";
     ss << "type INTEGER NOT NULL, content TEXT NOT NULL, time INTEGER NOT NULL, files TEXT, access TEXT);";
 
     return CreateTable(ss.str());
@@ -106,19 +106,18 @@ int DatabaseHelper::SetOwner(const std::string& owner)
 
 std::string DatabaseHelper::GetOwner()
 {
-    char sql[512];
     sqlite3_stmt* pStmt = nullptr;
     std::stringstream ss;
     ss << "SELECT * FROM '" << SETTING_TABLE << "' WHERE name='owner';";
 
-    char* owner;
+    std::string owner;
     int ret = sqlite3_prepare_v2(mDb, ss.str().c_str(), -1, &pStmt, NULL);
     if (ret != SQLITE_OK) {
         goto exit;
     }
 
     ret = sqlite3_step(pStmt);
-    if (ret != SQLITE_OK) {
+    if (ret != SQLITE_ROW) {
         goto exit;
     }
 
@@ -157,7 +156,7 @@ bool DatabaseHelper::GetPrivate()
     }
 
     ret = sqlite3_step(pStmt);
-    if (ret != SQLITE_OK) {
+    if (ret != SQLITE_ROW) {
         goto exit;
     }
 
