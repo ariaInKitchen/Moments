@@ -31,6 +31,8 @@ private:
     void AcceptFriend(const std::string& humanCode, const Json& json);
 
     void HandleGetSetting(const std::string& humanCode, const Json& json);
+    void HandleGetData(const std::string& humanCode, const Json& json);
+    void HandleGetDataList(const std::string& humanCode, const Json& json);
 
 private:
     MomentsService* mService;

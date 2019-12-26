@@ -23,19 +23,6 @@ void DestroyService(void* service)
 
 }
 
-std::string MomentsService::Moment::toString()
-{
-    Json json;
-    json["id"] = mId;
-    json["type"] = mType;
-    json["content"] = mContent;
-    json["time"] = mTime;
-    json["files"] = mFiles;
-    json["access"] = mAccess;
-
-    return json.dump();
-}
-
 MomentsService::MomentsService(const std::string& path)
     : mPath(path)
     , mStopThread(true)
@@ -102,10 +89,7 @@ int MomentsService::Add(int type, const std::string& content,
     int ret = mDbHelper->InsertData(type, content, time, files, access);
     if (ret > 0) {
         printf("insert to db id %d\n", ret);
-        auto moment = std::make_shared<Moment>(ret, type, content, time, files, access);
-        std::unique_lock<std::mutex> _lock(mListMutex);
-        mMsgList.push_back(moment);
-        NotifyNewMessage();
+        NotifyPushMessage();
     }
 
     return ret;
@@ -138,6 +122,7 @@ int MomentsService::UpdateFriendList(const std::string& friendCode, const Friend
     mConnector->GetFriendInfo(friendCode, friendInfo);
     if (status == FriendInfo::Status::Online) {
         mOnlineFriendList.push_back(friendInfo);
+        NotifyPushMessage();
     }
     else {
         for (auto it = mOnlineFriendList.begin(); it != mOnlineFriendList.end(); it++) {
@@ -178,24 +163,51 @@ void MomentsService::StopMessageThread()
     mMessageThread.reset();
 }
 
-void MomentsService::NotifyNewMessage()
+void MomentsService::NotifyPushMessage()
 {
     std::unique_lock<std::mutex> lk(mCvMutex);
     lk.unlock();
     mCv.notify_one();
 }
 
-void MomentsService::PushMoment(const std::string& friendCode, const std::shared_ptr<Moment>& moment)
+void MomentsService::PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& friendInfo)
 {
-    printf("MomentsService push moment to %s\n", friendCode.c_str());
+    std::string humanCode;
+    friendInfo->getHumanCode(humanCode);
+    printf("MomentsService push moments to %s\n", humanCode.c_str());
+
+    long time = 0;
+    std::string addition;
+    friendInfo->getHumanInfo(ElaphantContact::HumanInfo::Item::Addition, addition);
+    if (!addition.empty()) {
+        time = std::stol(addition);
+    }
+
+    long lastTime;
+    std::stringstream ss;
+    int ret = mDbHelper->GetData(time, ss, &lastTime);
+    if (ret != SQLITE_OK) {
+        printf("get data error \n");
+        return;
+    }
+
+    std::string record = ss.str();
+    if (record.size() <= 5) {
+        printf("no new moment\n");
+        return;
+    }
+
     Json json;
     json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "pushData";
-    content["content"] = moment->toString();
+    content["content"] = record;
     json["content"] = content;
 
-    mConnector->SendMessage(friendCode, json.dump());
+    ret = mConnector->SendMessage(humanCode, json.dump());
+    if (ret != 0) return;
+
+    friendInfo->setHumanInfo(ElaphantContact::HumanInfo::Item::Addition, std::to_string(lastTime));
 }
 
 void MomentsService::SendSetting(const std::string& type)
@@ -214,6 +226,48 @@ void MomentsService::SendSetting(const std::string& type)
     }
 }
 
+void MomentsService::SendData(const std::string& friendCode, int id)
+{
+    if (id < 0) return;
+    auto moment = mDbHelper->GetData(id);
+    if (moment == nullptr) {
+        printf("MomentsService data id %d not found\n", id);
+        return;
+    }
+
+    Json json;
+    json["serviceName"] = MOMENTS_SERVICE_NAME;
+    Json content;
+    content["command"] = "getData";
+    content["content"] = moment->toJson();
+    json["content"] = content;
+
+    mConnector->SendMessage(friendCode, json.dump());
+}
+
+void MomentsService::SendDataList(const std::string& friendCode, long time)
+{
+    Json moments = Json::array();
+    int ret = mDbHelper->GetData(time, moments);
+    if (ret != SQLITE_OK) {
+        printf("MomentsService GetData failed %d\n", ret);
+        return;
+    }
+    if (moments.size() == 0) {
+        printf("MomentsService GetData no new data\n");
+        return;
+    }
+
+    Json json;
+    json["serviceName"] = MOMENTS_SERVICE_NAME;
+    Json content;
+    content["command"] = "getDataList";
+    content["content"] = moments;
+    json["content"] = content;
+
+    mConnector->SendMessage(friendCode, json.dump());
+}
+
 void MomentsService::ThreadFun(MomentsService* service)
 {
     printf("Moments service start message thread.\n");
@@ -225,18 +279,13 @@ void MomentsService::ThreadFun(MomentsService* service)
 
         printf("Momtents service message thread aweak\n");
         std::unique_lock<std::mutex> _lock(service->mListMutex);
-        if (service->mOnlineFriendList.size() == 0 || service->mMsgList.size() == 0) {
+        if (service->mOnlineFriendList.size() == 0) {
             continue;
         }
 
-        for (auto it = service->mMsgList.begin(); it != service->mMsgList.end(); it++) {
-            for (const auto& friendItem : service->mOnlineFriendList) {
-                std::string humanCode;
-                friendItem->getHumanCode(humanCode);
-                service->PushMoment(humanCode, *it);
-            }
+        for (auto& friendItem : service->mOnlineFriendList) {
+            service->PushMoments(friendItem);
         }
-        service->mMsgList.clear();
     }
 
     printf("Moments service stop message thread.\n");

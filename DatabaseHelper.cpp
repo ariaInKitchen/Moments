@@ -9,6 +9,27 @@
 
 namespace elastos {
 
+Json DatabaseHelper::Moment::toJson()
+{
+    Json json;
+    json["id"] = mId;
+    json["type"] = mType;
+    json["content"] = mContent;
+    json["time"] = mTime;
+    json["files"] = mFiles;
+    json["access"] = mAccess;
+
+    return json;
+}
+
+std::string DatabaseHelper::Moment::toString()
+{
+    Json json = toJson();
+
+    return json.dump();
+}
+
+
 DatabaseHelper::DatabaseHelper(const std::string& path)
 {
     std::stringstream ss;
@@ -250,14 +271,14 @@ int DatabaseHelper::Insert(const std::string& sql)
     return ret;
 }
 
-int DatabaseHelper::GetData(long time, std::stringstream& data)
+int DatabaseHelper::GetData(long time, std::stringstream& data, long* lastTime)
 {
     sqlite3_stmt* pStmt = nullptr;
     int ret = 0;
     std::stringstream ss;
     bool first = true;
-    ss << "SELECT * FROM '" << LIST_TABLE << "'";
-    if (time <= 0) {
+    ss << "SELECT id, time FROM '" << LIST_TABLE << "'";
+    if (time > 0) {
         ss << " WHERE time>" << time;
     }
     ss << " ORDER BY time DESC;";
@@ -274,27 +295,16 @@ int DatabaseHelper::GetData(long time, std::stringstream& data)
         if (!first) {
             data << ",";
         }
-        else {
-            first = false;
-        }
         data << "{";
         int id = sqlite3_column_int(pStmt, 0);
         data << "'id':" << id <<",";
 
-        int type = sqlite3_column_int(pStmt, 1);
-        data << "'type':" << type <<",";
-
-        char* content = (char*)sqlite3_column_text(pStmt, 2);
-        data << "'content':'" << content <<"',";
-
-        long recordTime = sqlite3_column_int64(pStmt, 3);
-        data << "'time':" << recordTime <<",";
-
-        char* files = (char*)sqlite3_column_text(pStmt, 4);
-        data << "'files':'" << files <<"',";
-
-        char* access = (char*)sqlite3_column_text(pStmt, 5);
-        data << "'access':'" << access <<"'}";
+        long recordTime = sqlite3_column_int64(pStmt, 1);
+        data << "'time':" << recordTime <<"}";
+        if (first && lastTime != nullptr) {
+            *lastTime = recordTime;
+        }
+        first = false;
     }
 
     data << "]";
@@ -304,6 +314,76 @@ exit:
         sqlite3_finalize(pStmt);
     }
     return ret;
+}
+
+int DatabaseHelper::GetData(long time, Json& json)
+{
+    sqlite3_stmt* pStmt = nullptr;
+    int ret = 0, index = 0;
+    std::stringstream ss;
+    ss << "SELECT * FROM '" << LIST_TABLE << "'";
+    if (time > 0) {
+        ss << " WHERE time>" << time;
+    }
+    ss << " ORDER BY time DESC LIMIT " << DATA_LIMIT << ";";
+
+    ret = sqlite3_prepare_v2(mDb, ss.str().c_str(), -1, &pStmt, NULL);
+    if (ret != SQLITE_OK) {
+        printf("Get data prepare failed ret:%d\n", ret);
+        goto exit;
+    }
+
+    while (SQLITE_ROW == sqlite3_step(pStmt)) {
+        int id = sqlite3_column_int(pStmt, 0);
+        int type = sqlite3_column_int(pStmt, 1);
+        char* content = (char*)sqlite3_column_text(pStmt, 2);
+        long recordTime = sqlite3_column_int64(pStmt, 3);
+        char* files = (char*)sqlite3_column_text(pStmt, 4);
+        char* access = (char*)sqlite3_column_text(pStmt, 5);
+
+        Moment moment(id, type, content, recordTime, files, access);
+        json[index] = moment.toJson();
+        index++;
+    }
+
+exit:
+    if (pStmt) {
+        sqlite3_finalize(pStmt);
+    }
+    return ret;
+}
+
+std::shared_ptr<DatabaseHelper::Moment> DatabaseHelper::GetData(int id)
+{
+    sqlite3_stmt* pStmt = nullptr;
+    int ret = 0;
+    std::stringstream ss;
+    ss << "SELECT * FROM '" << LIST_TABLE << "'";
+    ss << " WHERE id=" << id << ";";
+    std::shared_ptr<DatabaseHelper::Moment> moment;
+
+    ret = sqlite3_prepare_v2(mDb, ss.str().c_str(), -1, &pStmt, NULL);
+    if (ret != SQLITE_OK) {
+        printf("Get data prepare failed ret:%d\n", ret);
+        goto exit;
+    }
+
+    if (SQLITE_ROW == sqlite3_step(pStmt)) {
+        int id = sqlite3_column_int(pStmt, 0);
+        int type = sqlite3_column_int(pStmt, 1);
+        char* content = (char*)sqlite3_column_text(pStmt, 2);
+        long recordTime = sqlite3_column_int64(pStmt, 3);
+        char* files = (char*)sqlite3_column_text(pStmt, 4);
+        char* access = (char*)sqlite3_column_text(pStmt, 5);
+
+        moment = std::make_shared<DatabaseHelper::Moment>(id, type, content, recordTime, files, access);
+    }
+
+exit:
+    if (pStmt) {
+        sqlite3_finalize(pStmt);
+    }
+    return moment;
 }
 
 }

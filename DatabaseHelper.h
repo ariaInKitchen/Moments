@@ -4,11 +4,40 @@
 
 #include <sqlite3.h>
 #include <string>
+#include "Json.hpp"
+
+#define DATA_LIMIT  5
 
 namespace elastos {
 
 class DatabaseHelper
 {
+public:
+    class Moment
+    {
+    public:
+        Moment(int id, int type, const std::string& content,
+            long time, const std::string& files, const std::string& access)
+            : mId(id)
+            , mType(type)
+            , mContent(content)
+            , mTime(time)
+            , mFiles(files)
+            , mAccess(access)
+        {}
+
+        Json toJson();
+        std::string toString();
+
+    private:
+        int mId;
+        int mType;
+        std::string mContent;
+        long mTime;
+        std::string mFiles;
+        std::string mAccess;
+    };
+
 public:
     DatabaseHelper(const std::string& path);
     ~DatabaseHelper();
@@ -28,7 +57,11 @@ public:
 
     int ClearData();
 
-    int GetData(long time, std::stringstream& data);
+    int GetData(long time, std::stringstream& data, long* lastTime);
+
+    int GetData(long time, Json& json);
+
+    std::shared_ptr<DatabaseHelper::Moment> GetData(int id);
 
 private:
     bool TableExist(const std::string& name);

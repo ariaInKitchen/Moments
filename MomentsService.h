@@ -15,31 +15,6 @@ namespace elastos  {
 class MomentsService
 {
 public:
-    class Moment
-    {
-    public:
-        Moment(int id, int type, const std::string& content,
-            long time, const std::string& files, const std::string& access)
-            : mId(id)
-            , mType(type)
-            , mContent(content)
-            , mTime(time)
-            , mFiles(files)
-            , mAccess(access)
-        {}
-
-        std::string toString();
-
-    private:
-        int mId;
-        int mType;
-        std::string mContent;
-        long mTime;
-        std::string mFiles;
-        std::string mAccess;
-    };
-
-public:
     MomentsService(const std::string& path);
     ~MomentsService() = default;
 
@@ -67,11 +42,13 @@ private:
     void StartMessageThread();
     void StopMessageThread();
 
-    void NotifyNewMessage();
+    void NotifyPushMessage();
 
-    void PushMoment(const std::string& friendCode, const std::shared_ptr<Moment>& moment);
+    void PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& friendInfo);
 
     void SendSetting(const std::string& type);
+    void SendData(const std::string& friendCode, int id);
+    void SendDataList(const std::string& friendCode, long time);
 
     static void ThreadFun(MomentsService* service);
 
@@ -86,7 +63,6 @@ private:
 
     std::mutex mListMutex;
     std::vector<std::shared_ptr<ElaphantContact::FriendInfo>> mOnlineFriendList;
-    std::vector<std::shared_ptr<Moment>> mMsgList;
 
     // condition varialbe wait
     std::condition_variable mCv;

@@ -48,7 +48,10 @@ void MomentsListener::onReceivedMessage(const std::string& humanCode, ElaphantCo
             HandleSetting(humanCode, content);
         }
         else if (!command.compare("getData")) {
-
+            HandleGetData(humanCode, content);
+        }
+        else if (!command.compare("getDataList")) {
+            HandleGetDataList(humanCode, content);
         }
         else if (!command.compare("delete")) {
             HandleDelete(humanCode, content);
@@ -173,5 +176,16 @@ void MomentsListener::HandleGetSetting(const std::string& humanCode, const Json&
     mService->SendSetting(type);
 }
 
+void MomentsListener::HandleGetData(const std::string& humanCode, const Json& json)
+{
+    int id = json["id"];
+    mService->SendData(humanCode, id);
+}
+
+void MomentsListener::HandleGetDataList(const std::string& humanCode, const Json& json)
+{
+    long time = json["time"];
+    mService->SendDataList(humanCode, time);
+}
 
 }
