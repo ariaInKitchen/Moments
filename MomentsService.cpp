@@ -32,9 +32,7 @@ MomentsService::MomentsService(const std::string& path)
     mConnector->SetMessageListener(listener);
 
     std::shared_ptr<ElaphantContact::UserInfo> userInfo = mConnector->GetUserInfo();
-    mPath.append("/");
     userInfo->getHumanCode(mUserCode);
-    mPath.append(mUserCode);
     mPath.append("/Moments");
 
     std::error_code stdErrCode;
