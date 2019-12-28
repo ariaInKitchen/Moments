@@ -68,6 +68,9 @@ void MomentsListener::onReceivedMessage(const std::string& humanCode, ElaphantCo
         else if (!command.compare("acceptFriend")) {
             AcceptFriend(humanCode, content);
         }
+        else if (!command.compare("getFollowList")) {
+            HandleGetFollowList(humanCode);
+        }
         else {
             printf("Not support command %s\n", command.c_str());
         }
@@ -83,7 +86,8 @@ void MomentsListener::HandleFriendRequest(ElaphantContact::Listener::RequestEven
         Json content;
         content["command"] = "friendRequest";
         content["friendCode"] = event->humanCode;
-        content["summary"] = event->summary;
+        Json summary = Json::parse(event->summary);
+        content["summary"] = summary["content"];
         Json json;
         json["serviceName"] = MOMENTS_SERVICE_NAME;
         json["content"] = content;
@@ -91,10 +95,13 @@ void MomentsListener::HandleFriendRequest(ElaphantContact::Listener::RequestEven
         mService->mConnector->SendMessage(mService->mOwner, json.dump());
     }
     else {
-        mService->mConnector->AcceptFriend(event->humanCode);
         if (mService->mOwner.empty()) {
+            // only did user can be owner
+            if (!mService->IsDid(event->humanCode)) return;
             mService->SetOwner(event->humanCode);
         }
+
+        mService->mConnector->AcceptFriend(event->humanCode);
     }
 }
 
@@ -117,7 +124,8 @@ void MomentsListener::HandleSetting(const std::string& humanCode, const Json& js
     std::string type = json["type"];
     if (!type.compare("access")) {
         bool priv = json["value"];
-        mService->SetPrivate(priv);
+        int ret = mService->SetPrivate(priv);
+        mService->SettingResponse("access", ret);
     }
 }
 
@@ -129,7 +137,8 @@ void MomentsListener::HandleDelete(const std::string& humanCode, const Json& jso
     }
 
     int id = json["id"];
-    mService->Remove(id);
+    int ret = mService->Remove(id);
+    mService->DeleteResponse(id, ret);
 }
 
 void MomentsListener::HandleClear(const std::string& humanCode)
@@ -138,7 +147,8 @@ void MomentsListener::HandleClear(const std::string& humanCode)
         printf("This is an owner command\n");
         return;
     }
-    mService->Clear();
+    int ret = mService->Clear();
+    mService->ClearResponse(ret);
 }
 
 void MomentsListener::HandlePublish(const std::string& humanCode, const Json& json)
@@ -152,7 +162,8 @@ void MomentsListener::HandlePublish(const std::string& humanCode, const Json& js
     std::string content = json["content"];
     long time = json["time"];
     std::string access = json["access"];
-    mService->Add(type, content, time, "", access);
+    int ret = mService->Add(type, content, time, "", access);
+    mService->PublishResponse(time, ret);
 }
 
 void MomentsListener::AcceptFriend(const std::string& humanCode, const Json& json)
@@ -186,6 +197,15 @@ void MomentsListener::HandleGetDataList(const std::string& humanCode, const Json
 {
     long time = json["time"];
     mService->SendDataList(humanCode, time);
+}
+
+void MomentsListener::HandleGetFollowList(const std::string& humanCode)
+{
+    if (humanCode.compare(mService->mOwner)) {
+        printf("This is an owner command\n");
+        return;
+    }
+    mService->SendFollowList(humanCode);
 }
 
 }

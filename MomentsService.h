@@ -50,6 +50,15 @@ private:
     void SendData(const std::string& friendCode, int id);
     void SendDataList(const std::string& friendCode, long time);
 
+    bool IsDid(const std::string& friendCode);
+
+    void PublishResponse(long time, int result);
+    void DeleteResponse(int id, int result);
+    void ClearResponse(int result);
+    void SettingResponse(const std::string& type, int result);
+
+    void SendFollowList(const std::string& friendCode);
+
     static void ThreadFun(MomentsService* service);
 
 private:

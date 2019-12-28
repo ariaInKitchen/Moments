@@ -33,6 +33,7 @@ private:
     void HandleGetSetting(const std::string& humanCode, const Json& json);
     void HandleGetData(const std::string& humanCode, const Json& json);
     void HandleGetDataList(const std::string& humanCode, const Json& json);
+    void HandleGetFollowList(const std::string& humanCode);
 
 private:
     MomentsService* mService;

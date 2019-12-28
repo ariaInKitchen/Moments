@@ -9,6 +9,16 @@
 
 namespace elastos {
 
+static int turn(int a)
+{
+    int ret = a;
+    if (a > 0) {
+        ret = ~a + 1;
+    }
+    return ret;
+}
+
+
 Json DatabaseHelper::Moment::toJson()
 {
     Json json;
@@ -97,7 +107,7 @@ int DatabaseHelper::CreateDataTable()
 {
     std::stringstream ss;
     ss << "CREATE TABLE " << LIST_TABLE << "(id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, ";
-    ss << "type INTEGER NOT NULL, content TEXT NOT NULL, time INTEGER NOT NULL, files TEXT, access TEXT);";
+    ss << "type INTEGER NOT NULL, content TEXT NOT NULL, time INTEGER NOT NULL, files TEXT, access TEXT, isDelete INTEGER NOT NULL);";
 
     return CreateTable(ss.str());
 }
@@ -111,7 +121,7 @@ int DatabaseHelper::CreateTable(const std::string& sql)
         sqlite3_free(errMsg);
     }
 
-    return ret;
+    return turn(ret);
 }
 
 int DatabaseHelper::SetOwner(const std::string& owner)
@@ -198,9 +208,9 @@ int DatabaseHelper::InsertData(int type, const std::string& content,
 {
     std::stringstream stream;
     stream << "INSERT INTO '" << LIST_TABLE;
-    stream << "'(type,content,time,files,access) VALUES (";
+    stream << "'(type,content,time,files,access,isDelete) VALUES (";
     stream << type << ",'" << content << "'," << time;
-    stream << ",'" << files << "','" << access << "');";
+    stream << ",'" << files << "','" << access << "',0);";
 
     int ret = Insert(stream.str());
     if (ret != SQLITE_OK) {
@@ -213,9 +223,21 @@ int DatabaseHelper::InsertData(int type, const std::string& content,
 
 int DatabaseHelper::RemoveData(int id)
 {
+    // char* errMsg;
+    // std::stringstream ss;
+    // ss << "DELETE FROM '" << LIST_TABLE << "' WHERE id=" << id << ";";
+
+    // int ret = sqlite3_exec(mDb, ss.str().c_str(), NULL, NULL, &errMsg);
+    // if (ret != SQLITE_OK) {
+    //     printf("remove data id %d failed ret %d, %s\n", id, ret, errMsg);
+    //     sqlite3_free(errMsg);
+    // }
+
+    // return turn(ret);
+
     char* errMsg;
     std::stringstream ss;
-    ss << "DELETE FROM '" << LIST_TABLE << "' WHERE id=" << id << ";";
+    ss << "UPDATE '" << LIST_TABLE << "' SET isDelete = 1 WHERE id=" << id << ";";
 
     int ret = sqlite3_exec(mDb, ss.str().c_str(), NULL, NULL, &errMsg);
     if (ret != SQLITE_OK) {
@@ -223,29 +245,41 @@ int DatabaseHelper::RemoveData(int id)
         sqlite3_free(errMsg);
     }
 
-    return ret;
+    return turn(ret);
 }
 
 int DatabaseHelper::ClearData()
 {
+    // char* errMsg;
+    // std::stringstream ss;
+    // ss << "DELETE FROM '" << LIST_TABLE << "';";
+
+    // int ret = sqlite3_exec(mDb, ss.str().c_str(), NULL, NULL, &errMsg);
+    // if (ret != SQLITE_OK) {
+    //     printf("clear data failed ret %d, %s\n", ret, errMsg);
+    //     sqlite3_free(errMsg);
+    //     return ret;
+    // }
+
+    // ret = sqlite3_exec(mDb, "VACUUM;", NULL, NULL, &errMsg);
+    // if (ret != SQLITE_OK) {
+    //     printf("clear unused space failed ret %d, %s\n", ret, errMsg);
+    //     sqlite3_free(errMsg);
+    // }
+
+    // return turn(ret);
+
     char* errMsg;
     std::stringstream ss;
-    ss << "DELETE FROM '" << LIST_TABLE << "';";
+    ss << "UPDATE '" << LIST_TABLE << "' SET isDelete = 1;";
 
     int ret = sqlite3_exec(mDb, ss.str().c_str(), NULL, NULL, &errMsg);
     if (ret != SQLITE_OK) {
         printf("clear data failed ret %d, %s\n", ret, errMsg);
         sqlite3_free(errMsg);
-        return ret;
     }
 
-    ret = sqlite3_exec(mDb, "VACUUM;", NULL, NULL, &errMsg);
-    if (ret != SQLITE_OK) {
-        printf("clear unused space failed ret %d, %s\n", ret, errMsg);
-        sqlite3_free(errMsg);
-    }
-
-    return ret;
+    return turn(ret);
 }
 
 int DatabaseHelper::Insert(const std::string& sql)
@@ -255,7 +289,7 @@ int DatabaseHelper::Insert(const std::string& sql)
     if (ret != SQLITE_OK) {
         printf("insert begin transaction failed ret %d, %s\n", ret, errMsg);
         sqlite3_free(errMsg);
-        return ret;
+        return turn(ret);
     }
 
     printf("insert sql: %s\n", sql.c_str());
@@ -264,11 +298,11 @@ int DatabaseHelper::Insert(const std::string& sql)
         printf("insert failed ret %d, %s\n", ret, errMsg);
         sqlite3_free(errMsg);
         sqlite3_exec(mDb, "ROLLBACK;", NULL, NULL, NULL);
-        return ret;
+        return turn(ret);
     }
 
     ret = sqlite3_exec(mDb, "COMMIT;", NULL, NULL, NULL);
-    return ret;
+    return turn(ret);
 }
 
 int DatabaseHelper::GetData(long time, std::stringstream& data, long* lastTime)
@@ -278,8 +312,9 @@ int DatabaseHelper::GetData(long time, std::stringstream& data, long* lastTime)
     std::stringstream ss;
     bool first = true;
     ss << "SELECT id, time FROM '" << LIST_TABLE << "'";
+    ss << " WHERE isDelete != 1";
     if (time > 0) {
-        ss << " WHERE time>" << time;
+        ss << " AND time>" << time;
     }
     ss << " ORDER BY time DESC;";
 
@@ -313,7 +348,7 @@ exit:
     if (pStmt) {
         sqlite3_finalize(pStmt);
     }
-    return ret;
+    return turn(ret);
 }
 
 int DatabaseHelper::GetData(long time, Json& json)
@@ -322,8 +357,9 @@ int DatabaseHelper::GetData(long time, Json& json)
     int ret = 0, index = 0;
     std::stringstream ss;
     ss << "SELECT * FROM '" << LIST_TABLE << "'";
+    ss << " WHERE isDelete != 1";
     if (time > 0) {
-        ss << " WHERE time>" << time;
+        ss << " AND time>" << time;
     }
     ss << " ORDER BY time DESC LIMIT " << DATA_LIMIT << ";";
 
@@ -350,7 +386,7 @@ exit:
     if (pStmt) {
         sqlite3_finalize(pStmt);
     }
-    return ret;
+    return turn(ret);
 }
 
 std::shared_ptr<DatabaseHelper::Moment> DatabaseHelper::GetData(int id)
@@ -359,7 +395,8 @@ std::shared_ptr<DatabaseHelper::Moment> DatabaseHelper::GetData(int id)
     int ret = 0;
     std::stringstream ss;
     ss << "SELECT * FROM '" << LIST_TABLE << "'";
-    ss << " WHERE id=" << id << ";";
+    ss << " WHERE isDelete != 1";
+    ss << " AND id=" << id << ";";
     std::shared_ptr<DatabaseHelper::Moment> moment;
 
     ret = sqlite3_prepare_v2(mDb, ss.str().c_str(), -1, &pStmt, NULL);
