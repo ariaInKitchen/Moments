@@ -197,14 +197,11 @@ void MomentsService::PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& f
         return;
     }
 
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "pushData";
     content["content"] = record;
-    json["content"] = content;
 
-    ret = mConnector->SendMessage(humanCode, json.dump());
+    ret = mConnector->SendMessage(humanCode, content.dump());
     if (ret != 0) return;
 
     friendInfo->setHumanInfo(ElaphantContact::HumanInfo::Item::Addition, std::to_string(lastTime));
@@ -213,13 +210,11 @@ void MomentsService::PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& f
 void MomentsService::SendSetting(const std::string& type)
 {
     if (!type.compare("access")) {
-        Json json;
-        json["serviceName"] = MOMENTS_SERVICE_NAME;
         Json content;
         content["command"] = "getSetting";
         content["type"] = type;
-        json["value"] = mPrivate;
-        mConnector->SendMessage(mOwner, json.dump());
+        content["value"] = mPrivate;
+        mConnector->SendMessage(mOwner, content.dump());
     }
     else {
         printf("MomentsService do not support this type: %s\n", type.c_str());
@@ -235,14 +230,11 @@ void MomentsService::SendData(const std::string& friendCode, int id)
         return;
     }
 
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "getData";
     content["content"] = moment->toJson();
-    json["content"] = content;
 
-    mConnector->SendMessage(friendCode, json.dump());
+    mConnector->SendMessage(friendCode, content.dump());
 }
 
 void MomentsService::SendDataList(const std::string& friendCode, long time)
@@ -258,14 +250,11 @@ void MomentsService::SendDataList(const std::string& friendCode, long time)
         return;
     }
 
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "getDataList";
     content["content"] = moments;
-    json["content"] = content;
 
-    mConnector->SendMessage(friendCode, json.dump());
+    mConnector->SendMessage(friendCode, content.dump());
 }
 
 bool MomentsService::IsDid(const std::string& friendCode)
@@ -276,62 +265,48 @@ bool MomentsService::IsDid(const std::string& friendCode)
 
 void MomentsService::PublishResponse(long time, int result)
 {
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "publish";
     content["time"] = time;
     content["result"] = result;
-    json["content"] = content;
 
-    mConnector->SendMessage(mOwner, json.dump());
+    mConnector->SendMessage(mOwner, content.dump());
 }
 
 void MomentsService::DeleteResponse(int id, int result)
 {
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "delete";
     content["id"] = id;
     content["result"] = result;
-    json["content"] = content;
 
-    mConnector->SendMessage(mOwner, json.dump());
+    mConnector->SendMessage(mOwner, content.dump());
 }
 
 void MomentsService::ClearResponse(int result)
 {
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "clear";
     content["result"] = result;
-    json["content"] = content;
 
-    mConnector->SendMessage(mOwner, json.dump());
+    mConnector->SendMessage(mOwner, content.dump());
 }
 
 void MomentsService::SettingResponse(const std::string& type, int result)
 {
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "setting";
     content["type"] = type;
     content["value"] = mPrivate;
     content["result"] = result;
-    json["content"] = content;
 
-    mConnector->SendMessage(mOwner, json.dump());
+    mConnector->SendMessage(mOwner, content.dump());
 }
 
 void MomentsService::SendFollowList(const std::string& friendCode)
 {
     const auto& friendList = mConnector->ListFriendInfo();
 
-    Json json;
-    json["serviceName"] = MOMENTS_SERVICE_NAME;
     Json content;
     content["command"] = "getFollowList";
 
@@ -347,9 +322,8 @@ void MomentsService::SendFollowList(const std::string& friendCode)
     }
 
     content["content"] = list;
-    json["content"] = content;
 
-    mConnector->SendMessage(mOwner, json.dump());
+    mConnector->SendMessage(mOwner, content.dump());
 }
 
 void MomentsService::ThreadFun(MomentsService* service)

@@ -39,9 +39,7 @@ void MomentsListener::onReceivedMessage(const std::string& humanCode, ElaphantCo
 {
     printf("Service %s received message %s from %s\n", MOMENTS_SERVICE_NAME, msgInfo->data->toString().c_str(), humanCode.c_str());
     try {
-        Json json = Json::parse(msgInfo->data->toString());
-
-        Json content = json["content"];
+        Json content = Json::parse(msgInfo->data->toString());
         std::string command = content["command"];
 
         if (!command.compare("setting")) {
@@ -88,11 +86,8 @@ void MomentsListener::HandleFriendRequest(ElaphantContact::Listener::RequestEven
         content["friendCode"] = event->humanCode;
         Json summary = Json::parse(event->summary);
         content["summary"] = summary["content"];
-        Json json;
-        json["serviceName"] = MOMENTS_SERVICE_NAME;
-        json["content"] = content;
 
-        mService->mConnector->SendMessage(mService->mOwner, json.dump());
+        mService->mConnector->SendMessage(mService->mOwner, content.dump());
     }
     else {
         if (mService->mOwner.empty()) {
