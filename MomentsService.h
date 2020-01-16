@@ -58,6 +58,7 @@ private:
     void SettingResponse(const std::string& type, int result);
 
     void SendFollowList(const std::string& friendCode);
+    void SendNewFollow(const std::string& friendCode);
 
     static void ThreadFun(MomentsService* service);
 

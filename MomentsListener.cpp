@@ -90,13 +90,20 @@ void MomentsListener::HandleFriendRequest(ElaphantContact::Listener::RequestEven
         mService->mConnector->SendMessage(mService->mOwner, content.dump());
     }
     else {
+        bool notify = false;
         if (mService->mOwner.empty()) {
             // only did user can be owner
             if (!mService->IsDid(event->humanCode)) return;
             mService->SetOwner(event->humanCode);
         }
+        else {
+            notify = true;
+        }
 
         mService->mConnector->AcceptFriend(event->humanCode);
+        if (notify) {
+            mService->SendNewFollow(event->humanCode);
+        }
     }
 }
 

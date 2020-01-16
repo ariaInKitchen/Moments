@@ -199,7 +199,8 @@ void MomentsService::PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& f
 
     Json content;
     content["command"] = "pushData";
-    content["content"] = record;
+    content["type"] = 0;
+    content["content"] = Json::arrayJson::parse(record);
 
     ret = mConnector->SendMessage(humanCode, content.dump());
     if (ret != 0) return;
@@ -324,6 +325,14 @@ void MomentsService::SendFollowList(const std::string& friendCode)
     content["content"] = list;
 
     mConnector->SendMessage(mOwner, content.dump());
+}
+
+void MomentsService::SendNewFollow(const std::string& friendCode)
+{
+    Json json;
+    json["command"] = "newFollow";
+    json["friendCode"] = friendCode;
+    mConnector->SendMessage(mOwner, json.dump());
 }
 
 void MomentsService::ThreadFun(MomentsService* service)

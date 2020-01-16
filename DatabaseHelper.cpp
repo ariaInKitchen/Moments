@@ -332,10 +332,10 @@ int DatabaseHelper::GetData(long time, std::stringstream& data, long* lastTime)
         }
         data << "{";
         int id = sqlite3_column_int(pStmt, 0);
-        data << "'id':" << id <<",";
+        data << "\"id\":" << id <<",";
 
         long recordTime = sqlite3_column_int64(pStmt, 1);
-        data << "'time':" << recordTime <<"}";
+        data << "\"time\":" << recordTime <<"}";
         if (first && lastTime != nullptr) {
             *lastTime = recordTime;
         }
