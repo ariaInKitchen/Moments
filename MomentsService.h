@@ -7,6 +7,7 @@
 #include <thread>
 #include "Connector.h"
 #include "DatabaseHelper.h"
+#include <condition_variable>
 
 #define MOMENTS_SERVICE_NAME    "moments"
 
