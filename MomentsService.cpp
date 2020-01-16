@@ -200,7 +200,7 @@ void MomentsService::PushMoments(std::shared_ptr<ElaphantContact::FriendInfo>& f
     Json content;
     content["command"] = "pushData";
     content["type"] = 0;
-    content["content"] = Json::arrayJson::parse(record);
+    content["content"] = Json::parse(record);
 
     ret = mConnector->SendMessage(humanCode, content.dump());
     if (ret != 0) return;
